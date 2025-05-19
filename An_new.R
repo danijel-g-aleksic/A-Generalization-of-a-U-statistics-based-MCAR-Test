@@ -43,8 +43,8 @@ An_new <- function(XY) {
   }
   
   X <- data.frame(XY[, colind_x])
-  Y <- XY[, -colind_x]
-  R <- 1*(!is.na(XY[, -colind_x]))
+  Y <- data.frame(XY[, -colind_x])
+  R <- data.frame(1*(!is.na(XY[, -colind_x])))
   p <- length(colind_x)
   q <- ncol(XY) - p
   n <- nrow(XY)
@@ -83,28 +83,36 @@ An_new <- function(XY) {
       SXR[i, j] <- CVX[mask[i, 1], mask[j, 1]] * CVR[mask[i, 2], mask[j, 2]]
     }
   }
-  SYR <- matrix(rep(0, q*(q-1)*q*(q-1)), nrow = q*(q-1))
-  for(i in 1:(q*(q-1))) {
-    for(j in 1:(q*(q-1))) {
-      Yu <- Y[, mask[i+p*q, 1]]
-      Yr <- Y[, mask[j+p*q, 1]]
-      Yu[is.na(Yu)] <- 0
-      Yr[is.na(Yr)] <- 0
-      SYR[i, j] <- cov(Yu, Yr) * CVR[mask[i+p*q, 2], mask[j+p*q, 2]] 
+  
+  if (q > 1) {
+    SYR <- matrix(rep(0, q*(q-1)*q*(q-1)), nrow = q*(q-1))
+    for(i in 1:(q*(q-1))) {
+      for(j in 1:(q*(q-1))) {
+        Yu <- Y[, mask[i+p*q, 1]]
+        Yr <- Y[, mask[j+p*q, 1]]
+        Yu[is.na(Yu)] <- 0
+        Yr[is.na(Yr)] <- 0
+        SYR[i, j] <- cov(Yu, Yr) * CVR[mask[i+p*q, 2], mask[j+p*q, 2]] 
+      }
     }
   }
   
   S <- matrix(rep(0, (p*q + q*(q-1))*(p*q + q*(q-1))), nrow = p*q + q*(q-1))
   S[1:(p*q), 1:(p*q)] <- SXR
-  S[(p*q + 1):(p*q + q*(q-1)), (p*q + 1):(p*q + q*(q-1))] <- SYR
+  
+  if (q > 1) {
+    S[(p*q + 1):(p*q + q*(q-1)), (p*q + 1):(p*q + q*(q-1))] <- SYR
+  }
   
   
-  for(i in 1:(p*q)) {
-    for(j in (p*q + 1):(p*q + q*(q-1))) {
-      tmp <- cbind(X[, mask[i, 1]], Y[, mask[j, 1]])
-      tmp <- na.omit(tmp)
-      S[i, j] <- cov(tmp[, 1], tmp[, 2]) * CVR[mask[i, 2], mask[j, 2]] * mean(!is.na(Y[, mask[j, 1]])) # * CVR[mask[j, 2], mask[j, 2]]   
-      S[j, i] <- S[i, j]
+  if(q > 1) {
+    for(i in 1:(p*q)) {
+      for(j in (p*q + 1):(p*q + q*(q-1))) {
+        tmp <- cbind(X[, mask[i, 1]], Y[, mask[j, 1]])
+        tmp <- na.omit(tmp)
+        S[i, j] <- cov(tmp[, 1], tmp[, 2]) * CVR[mask[i, 2], mask[j, 2]] * mean(!is.na(Y[, mask[j, 1]])) # * CVR[mask[j, 2], mask[j, 2]]   
+        S[j, i] <- S[i, j]
+      }
     }
   }
   
