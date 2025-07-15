@@ -42,12 +42,20 @@ An_new <- function(XY) {
     stop("There is no missing data.")
   }
   
-  X <- data.frame(XY[, colind_x])
-  Y <- data.frame(XY[, -colind_x])
-  R <- data.frame(1*(!is.na(XY[, -colind_x])))
-  p <- length(colind_x)
-  q <- ncol(XY) - p
-  n <- nrow(XY)
+  if (!is.null(colind_x)) {
+    X <- data.frame(XY[, colind_x])
+    Y <- data.frame(XY[, -colind_x])
+    R <- data.frame(1*(!is.na(XY[, -colind_x])))
+    p <- length(colind_x)
+    q <- ncol(XY) - p
+    n <- nrow(XY)
+  }else {
+    Y <- data.frame(XY)
+    R <- data.frame(1*(!is.na(XY)))
+    p <- 0
+    q <- ncol(XY)
+    n <- nrow(XY)
+  }
   
   
   
@@ -56,11 +64,13 @@ An_new <- function(XY) {
   
   
   k <- 1
-  for(i in 1:p) {
-    for (j in 1:q) {
-      vec[k] <- TnXR_new(X[, i], R[, j])
-      mask[k, ] <- c(i, j)
-      k <- k + 1
+  if (!is.null(colind_x)) {
+    for(i in 1:p) {
+      for (j in 1:q) {
+        vec[k] <- TnXR_new(X[, i], R[, j])
+        mask[k, ] <- c(i, j)
+        k <- k + 1
+      }
     }
   }
   
@@ -73,16 +83,22 @@ An_new <- function(XY) {
     }
   }
   
-  CVX <- cov(X)
+  if (!is.null(colind_x)) {
+    CVX <- cov(X)
+  }
   CVR <- cov(R)
 
   
-  SXR <- matrix(rep(0, p*q*p*q), nrow = p*q)
-  for(i in 1:(p*q)) {
-    for(j in 1:(p*q)) {
-      SXR[i, j] <- CVX[mask[i, 1], mask[j, 1]] * CVR[mask[i, 2], mask[j, 2]]
+  if (!is.null(colind_x)) {
+    SXR <- matrix(rep(0, p*q*p*q), nrow = p*q)
+    for(i in 1:(p*q)) {
+      for(j in 1:(p*q)) {
+        SXR[i, j] <- CVX[mask[i, 1], mask[j, 1]] * CVR[mask[i, 2], mask[j, 2]]
+      }
     }
   }
+
+  
   
   if (q > 1) {
     SYR <- matrix(rep(0, q*(q-1)*q*(q-1)), nrow = q*(q-1))
@@ -98,23 +114,29 @@ An_new <- function(XY) {
   }
   
   S <- matrix(rep(0, (p*q + q*(q-1))*(p*q + q*(q-1))), nrow = p*q + q*(q-1))
-  S[1:(p*q), 1:(p*q)] <- SXR
+  if (!is.null(colind_x)) {
+    S[1:(p*q), 1:(p*q)] <- SXR
+  }
+  
   
   if (q > 1) {
     S[(p*q + 1):(p*q + q*(q-1)), (p*q + 1):(p*q + q*(q-1))] <- SYR
   }
   
-  
-  if(q > 1) {
-    for(i in 1:(p*q)) {
-      for(j in (p*q + 1):(p*q + q*(q-1))) {
-        tmp <- cbind(X[, mask[i, 1]], Y[, mask[j, 1]])
-        tmp <- na.omit(tmp)
-        S[i, j] <- cov(tmp[, 1], tmp[, 2]) * CVR[mask[i, 2], mask[j, 2]] * mean(!is.na(Y[, mask[j, 1]])) # * CVR[mask[j, 2], mask[j, 2]]   
-        S[j, i] <- S[i, j]
+  if (!is.null(colind_x)) {
+    if(q > 1) {
+      for(i in 1:(p*q)) {
+        for(j in (p*q + 1):(p*q + q*(q-1))) {
+          tmp <- cbind(X[, mask[i, 1]], Y[, mask[j, 1]])
+          tmp <- na.omit(tmp)
+          S[i, j] <- cov(tmp[, 1], tmp[, 2]) * CVR[mask[i, 2], mask[j, 2]] * mean(!is.na(Y[, mask[j, 1]])) # * CVR[mask[j, 2], mask[j, 2]]   
+          S[j, i] <- S[i, j]
+        }
       }
     }
   }
+  
+  
   
   An <- vec %*% pseudoinverse(S) %*% vec
   An <- as.numeric(n * An)
